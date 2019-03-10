@@ -10,6 +10,8 @@
     "@sucrase/jest-plugin": "^2.0.0",
     "eslint": "^5.11.0",
     "jest": "^24.1.0",
+    "replace-in-file": "^3.4.4",
+    "simple-git": "^1.107.0",
     "sucrase": "^3.9.5"
   },
   "scripts": {
