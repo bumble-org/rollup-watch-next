@@ -1,15 +1,6 @@
 import { watch } from 'rollup'
 
-const CODES = {
-  START: 'START',
-  BUNDLE_START: 'BUNDLE_START',
-  BUNDLE_END: 'BUNDLE_END',
-  END: 'END',
-  FATAL: 'FATAL',
-  ERROR: 'ERROR',
-}
-
-function watchAsync(config, jest) {
+function watchAsync(config, cb) {
   const watcher = watch(config)
   const resolves = {
     START: [],
@@ -22,22 +13,26 @@ function watchAsync(config, jest) {
   const rejects = []
 
   const eventHandler = event => {
-    resolves[event.code].forEach(fn => fn(event))
+    const tuple = { value: event, done: event.code === 'FATAL' }
+
+    resolves[event.code].forEach(fn => fn(tuple))
     resolves[event.code] = []
 
-    if (event.code === CODES.FATAL) {
+    if (tuple.done) {
       rejects.forEach(fn => fn(event))
+      watcher.close()
     }
   }
 
-  if (jest) watcher.on('event', jest.fn(eventHandler))
-  else watcher.on('event', eventHandler)
+  if (cb) watcher.on('event', cb)
+  watcher.on('event', eventHandler)
 
-  return code =>
+  watcher.next = code =>
     new Promise((resolve, reject) => {
       resolves[code].push(resolve)
       rejects.push(reject)
     })
+  return watcher
 }
 
-export { watchAsync, CODES }
+export { watchAsync }
