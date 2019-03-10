@@ -1,3 +1,3 @@
 import { b } from './module2'
 
-export const a = () => 'a' + b
+export const a = () => 'change' + b
