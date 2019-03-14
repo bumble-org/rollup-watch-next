@@ -1,7 +1,9 @@
 import { watch } from 'rollup'
+import nanoid from 'nanoid'
 
-function watchAsync(config, cb) {
+export default function watchNext(config, cb) {
   const watcher = watch(config)
+
   const resolves = {
     START: [],
     BUNDLE_START: [],
@@ -19,7 +21,7 @@ function watchAsync(config, cb) {
     resolves[event.code] = []
 
     if (tuple.done) {
-      rejects.forEach(fn => fn(event))
+      rejects.forEach(fn => fn(tuple))
       watcher.close()
     }
   }
@@ -32,7 +34,22 @@ function watchAsync(config, cb) {
       resolves[code].push(resolve)
       rejects.push(reject)
     })
+
+  const id = nanoid()
+  watcher.id = id
+
+  const closeWatcher = watcher.close
+  let closed = false
+  watcher.close = () => {
+    if (!closed) {
+      process.emit('rollup-watch:close', id)
+      closed = true
+    }
+
+    return closeWatcher()
+  }
+
+  process.emit('rollup-watch:start', id)
+
   return watcher
 }
-
-export { watchAsync }
