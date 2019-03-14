@@ -19,5 +19,6 @@ export default [
         sourcemap: 'inline',
       },
     ],
+    external: ['rollup', 'nanoid'],
   },
 ]
