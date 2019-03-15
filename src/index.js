@@ -50,7 +50,7 @@ export default function watchNext(config, cb) {
       resolves[code] = []
     }
 
-    if (['FATAL', 'CLOSE'].includes(code)) {
+    if (['FATAL', 'ERROR'].includes(code)) {
       // should reject on FATAL or ERROR
       // - will not reject for watcher.next('FATAL'),
       //   since those promises have already resolved
