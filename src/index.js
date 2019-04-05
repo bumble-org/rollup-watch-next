@@ -1,94 +1,72 @@
 import { watch } from 'rollup'
 import nanoid from 'nanoid'
 
+import compose from './compose'
+
+const successCodes = [
+  'START',
+  'BUNDLE_START',
+  'BUNDLE_END',
+  'END',
+]
+const errorCodes = ['ERROR', 'FATAL']
+const doneCodes = ['FATAL', 'CLOSE']
+
+const createIterator = compose(
+  'event',
+  {
+    /* ----------------- selectors ---------------- */
+    resolve: nextCode => ({ code, ...value }) =>
+      // If nextCode is undefined and event is success
+      (!nextCode && successCodes.includes(code)) ||
+      // If nextCode is defined and matches event
+      nextCode === code
+        ? value
+        : null,
+
+    reject: nextCode => ({ code, ...value }) =>
+      !errorCodes.includes(nextCode) && errorCodes.includes(code)
+        ? value
+        : null,
+
+    done: () => ({ code }) => doneCodes.includes(code),
+
+    /* --------------- setup watcher -------------- */
+    setup: watcher => {
+      // Create watcher id
+      const id = nanoid()
+      watcher.id = id
+
+      // Emit start event on process
+      process.emit('rollup-watch-next:start', id)
+
+      // Wrap close method
+      const close = watcher.close
+      let closed = false
+
+      watcher.close = (...args) => {
+        if (closed) return
+
+        // Call original close method
+        close(...args)
+
+        // Emit close event on process
+        process.emit('rollup-watch-next:close', id)
+
+        // Emit close event
+        watcher.emit('event', { code: 'CLOSE', args })
+
+        closed = true
+      }
+
+      return watcher
+    },
+  },
+)
+
 export default function watchNext(config, cb) {
   const watcher = watch(config)
   if (cb) watcher.on('event', cb)
 
-  const id = nanoid()
-  watcher.id = id
-  process.emit('rollup-watch:start', id)
-
-  const resolves = {
-    START: [],
-    BUNDLE_START: [],
-    BUNDLE_END: [],
-    END: [],
-    FATAL: [],
-    ERROR: [],
-  }
-  const rejects = []
-  let done = false
-
-  const closeWatcher = watcher.close
-  watcher.close = () => {
-    if (!done) {
-      process.emit('rollup-watch:close', id)
-      eventHandler({ code: 'CLOSE' })
-    }
-
-    return closeWatcher()
-  }
-
-  const eventHandler = ({ code, ...value }) => {
-    // do not resurrect if done
-    done = done || ['FATAL', 'CLOSE'].includes(code)
-
-    // do not include event code in value
-    const tuple = { value, done }
-
-    if (code === 'CLOSE') {
-      // resolve all events with { done }
-      // on watcher.close()
-      Object.values(resolves)
-        .flat()
-        .forEach(fn => fn({ done }))
-    } else {
-      // if event is from watcher
-      // - resolves for watcher.next('FATAL')
-      resolves[code].forEach(fn => fn(tuple))
-      resolves[code] = []
-    }
-
-    if (['FATAL', 'ERROR'].includes(code)) {
-      // should reject on FATAL or ERROR
-      // - will not reject for watcher.next('FATAL'),
-      //   since those promises have already resolved
-      rejects.forEach(fn => fn(tuple))
-      // make sure watcher is closed
-      closeWatcher()
-    }
-  }
-
-  watcher.on('event', eventHandler)
-
-  watcher.next = nextCode => {
-    if (!resolves[nextCode]) {
-      // cannot register invalid event code
-      throw new TypeError(
-        `${nextCode} is not a valid event code`,
-      )
-    }
-
-    return done
-      ? // if already done, resolve immediately
-        Promise.resolve({ done })
-      : // if not done
-        new Promise((resolve, reject) => {
-          if (nextCode) {
-            // if code is defined, resolve for that event
-            resolves[nextCode].push(resolve)
-          } else {
-            // if code is undefined, resolve for any event
-            Object.values(resolves).forEach(rs =>
-              rs.push(resolve),
-            )
-          }
-
-          // add to rejects regardless
-          rejects.push(reject)
-        })
-  }
-
-  return watcher
+  return createIterator(watcher)
 }
