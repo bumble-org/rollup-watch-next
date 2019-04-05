@@ -23,7 +23,7 @@ describe('watchAsync', () => {
     expect(spy).toBeCalledTimes(4)
   })
 
-  test('updates file change', async () => {
+  test('updates on file change', async () => {
     const spy = jest.fn()
 
     watcher = watch(config, spy)
@@ -32,7 +32,7 @@ describe('watchAsync', () => {
 
     expect(spy).toBeCalledTimes(4)
 
-    await replace({
+    replace({
       files: 'tests/fixtures/basic/entry.js',
       from: 'add',
       to: 'subtract',
@@ -46,12 +46,12 @@ describe('watchAsync', () => {
   test('emits start event', async () => {
     const spy = jest.fn()
 
-    process.on('rollup-watch:start', spy)
+    process.on('rollup-watch-next:start', spy)
 
     watcher = watch(config)
 
-    await watcher.next('END')
     watcher.close()
+    await watcher.next('END')
 
     expect(spy).toBeCalledWith(watcher.id)
   })
@@ -59,11 +59,12 @@ describe('watchAsync', () => {
   test('emits close event', async () => {
     const spy = jest.fn()
 
-    process.on('rollup-watch:close', spy)
+    process.on('rollup-watch-next:close', spy)
 
     watcher = watch(config)
 
     await watcher.next('END')
+
     watcher.close()
 
     expect(spy).toBeCalledWith(watcher.id)
@@ -74,13 +75,14 @@ describe('watchAsync', () => {
 
     watcher = watch(config)
 
-    process.on('rollup-watch:close', id => {
+    process.on('rollup-watch-next:close', id => {
       if (id === watcher.id) {
         spy(id)
       }
     })
 
     await watcher.next('END')
+
     watcher.close()
     watcher.close()
 
