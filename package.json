@@ -1,6 +1,6 @@
 {
   "name": "@bumble/rollup-watch-next",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Use rollup.watch in tests with ease.",
   "main": "build/bundle-cjs.js",
   "module": "build/bundle-esm.js",
